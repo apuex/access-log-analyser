@@ -4,20 +4,16 @@ import java.io._
 import java.util.concurrent.TimeUnit
 import java.util.regex._
 
+import akka.NotUsed
+import akka.actor.ActorSystem
+import akka.stream._
+import akka.stream.scaladsl._
 import com.github.apuex.accesslog.ApacheHttpdParser._
 import com.github.apuex.accesslog.Field._
 import com.github.apuex.springbootsolution.runtime._
-import akka._
-import akka.actor._
-import akka.stream._
-import akka.stream.scaladsl._
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.event._
 
 import scala.concurrent._
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Success
 
 object Main extends App {
   implicit val system = ActorSystem("system")
@@ -25,7 +21,7 @@ object Main extends App {
   implicit val execuionContext = system.dispatcher
 
 
-  if(args.length == 1) {
+  if (args.length == 1) {
     val (s1, s2) = analyse()
     val futures = Seq(s1, s2)
     futures.foreach(s => s.map(s => s.toSet[String].foreach(x => println(x))))
@@ -43,22 +39,22 @@ object Main extends App {
     val userAgentSink = Sink.seq[String]
     RunnableGraph.fromGraph(GraphDSL.create(requestSink, userAgentSink)((_, _)) { implicit builder =>
       (theRequestSink, theUserAgentSink) =>
-      import akka.stream.scaladsl.GraphDSL.Implicits._
+        import akka.stream.scaladsl.GraphDSL.Implicits._
 
-      val logs = accessLog(new File(args(0)))
-      val tokenizer = Flow[String].map(x => tokenLine(x, combinedPattern).filter(_ != null)).filter(!_.isEmpty)
-      val broadcast = builder.add(Broadcast[Array[String]](2))
-      val userAgentColIndex = combined.indexOf(UserAgent)
-      val requestColIndex = combined.indexOf(Request)
-      val request = Flow[Array[String]].map(x => x(requestColIndex))
-      val userAgent = Flow[Array[String]].map(x => x(userAgentColIndex))
+        val logs = accessLog(new File(args(0)))
+        val tokenizer = Flow[String].map(x => tokenLine(x, combinedPattern).filter(_ != null)).filter(!_.isEmpty)
+        val broadcast = builder.add(Broadcast[Array[String]](2))
+        val userAgentColIndex = combined.indexOf(UserAgent)
+        val requestColIndex = combined.indexOf(Request)
+        val request = Flow[Array[String]].map(x => x(requestColIndex))
+        val userAgent = Flow[Array[String]].map(x => x(userAgentColIndex))
           .log("error")
 
-      logs ~> tokenizer ~> broadcast ~> userAgent ~> theUserAgentSink.in
+        logs ~> tokenizer ~> broadcast ~> userAgent ~> theUserAgentSink.in
 
-      broadcast ~> request ~> theRequestSink.in
+        broadcast ~> request ~> theRequestSink.in
 
-      ClosedShape
+        ClosedShape
     }).run()(materializer)
   }
 
