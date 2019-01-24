@@ -7,6 +7,8 @@ organization := artifactGroupName
 version      := artifactVersionNumber
 
 libraryDependencies ++= Seq(
+  accessLogParser,
+  sbsRuntime,
   scalaTest % Test
 )
 
