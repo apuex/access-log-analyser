@@ -48,7 +48,9 @@ object Main extends App {
     s1.map(s => s.foreach(updateRequestMap(_)))
         .map(_ => {
           val requestsWriter = new PrintWriter(new FileOutputStream("requests-on-uri.log"))
-          requestMap.foreach(x => requestsWriter.println(s"${x._2}, ${x._1}"))
+          requestMap.toArray
+            .sortWith((x, y) => x._2 > y._2)
+            .foreach(x => requestsWriter.println(s"${x._2}, ${x._1}"))
 
           requestsWriter.flush()
           requestsWriter.close()
@@ -56,7 +58,9 @@ object Main extends App {
     s2.map(s => s.foreach(updateUserAgentMap(_)))
         .map(_ => {
           val userAgentWriter = new PrintWriter(new FileOutputStream("requests-by-user-agent.log"))
-          userAgentMap.foreach(x => userAgentWriter.println(s"${x._2}, ${x._1}"))
+          userAgentMap.toArray
+            .sortWith((x, y) => x._2 > y._2)
+            .foreach(x => userAgentWriter.println(s"${x._2}, ${x._1}"))
 
           userAgentWriter.flush()
           userAgentWriter.close()
@@ -100,7 +104,7 @@ object Main extends App {
           .map(x => {
             parsedCount.incrementAndGet()
             try {
-              bodyLengthTotal.addAndGet(x(bodyLengthIndex).toLong)
+              bodyLengthTotal.addAndGet(parseLong(x(bodyLengthIndex)))
             } catch {
               case x: Throwable => x.printStackTrace()
             }
@@ -108,7 +112,7 @@ object Main extends App {
           })
         val broadcast = builder.add(Broadcast[Array[String]](2))
         val request = Flow[Array[String]]
-          .map(x => (x(requestColIndex), x(bodyLengthIndex).toLong))
+          .map(x => (x(requestColIndex), parseLong(x(bodyLengthIndex))))
           .map(x => {
             val request = x._1.split("\\s+")
             if (request.length > 1) (request(1).split("[\\?]")(0), x._2)
@@ -116,15 +120,8 @@ object Main extends App {
               x
             }
           })
-        //.groupBy(Int.MaxValue, _._1)
-        //.reduce((x, y) => if (x._1.equals(y._1)) (x._1, x._2 + y._2, x._3 + y._3) else (y._1, x._2 + y._2, x._3 + y._3))
-        //.fold[(String, Long, Long)]((null, 0L, 0L))((x, y) => if (x._1 != null) (x._1, x._2 + y._2, x._3 + y._3) else (y._1, x._2 + y._2, x._3 + y._3))
-        //.mergeSubstreams
         val userAgent = Flow[Array[String]]
-          .map(x => (x(userAgentColIndex), x(bodyLengthIndex).toLong))
-        //          .groupBy(Int.MaxValue, _._1)
-        //          .reduce((x, y) => if (x._1.equals(y._1)) (x._1, x._2 + y._2, x._3 + y._3) else (y._1, x._2 + y._2, x._3 + y._3))
-        //          .mergeSubstreams
+          .map(x => (x(userAgentColIndex), parseLong(x(bodyLengthIndex))))
 
         logs ~> tokenizer ~> broadcast ~> userAgent ~> theUserAgentSink.in
 
@@ -144,5 +141,13 @@ object Main extends App {
         val reader = new BufferedReader(new InputStreamReader(new FileInputStream("%s%s%s".format(archiveDir.getPath, File.separator, f))))
         Source.fromIterator[String](() => new ScalaLineIterator(reader))
       })
+  }
+
+  private def parseLong(text: String): Long = {
+    try {
+      text.toLong
+    } catch {
+      case _: Throwable => 0L
+    }
   }
 }
