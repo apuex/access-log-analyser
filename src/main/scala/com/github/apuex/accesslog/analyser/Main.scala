@@ -117,7 +117,7 @@ object Main extends App {
           .map(x => (x(requestColIndex), parseLong(x(bodyLengthIndex))))
           .map(x => {
             val request = x._1.split("\\s+")
-            if (request.length > 1) (request(1).split("[\\?]")(0), x._2)
+            if (request.length > 1) (request(1).split("[\\?\\;]")(0), x._2)
             else {
               x
             }
