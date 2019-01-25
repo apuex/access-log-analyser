@@ -34,37 +34,39 @@ object Main extends App {
       s2
     )
 
-    var requestMap = new mutable.TreeMap[String, Long]()
-    var userAgentMap = new mutable.TreeMap[String, Long]()
+    var requestMap = new mutable.TreeMap[String, (Long, Long)]()
+    var userAgentMap = new mutable.TreeMap[String, (Long, Long)]()
 
     def updateRequestMap(x: (String, Long)) = synchronized {
-      requestMap += (x._1 -> (requestMap.getOrElse(x._1, 0L) + x._2))
+      val value = requestMap.getOrElse(x._1, (0L, 0L))
+      requestMap += (x._1 -> ((value._1 + 1), (value._2 + x._2)))
     }
 
     def updateUserAgentMap(x: (String, Long)) = synchronized {
-      userAgentMap += (x._1 -> (userAgentMap.getOrElse(x._1, 0L) + x._2))
+      val value = userAgentMap.getOrElse(x._1, (0L, 0L))
+      userAgentMap += (x._1 -> ((value._1 + 1), (value._2 + x._2)))
     }
 
     s1.map(s => s.foreach(updateRequestMap(_)))
-        .map(_ => {
-          val requestsWriter = new PrintWriter(new FileOutputStream("requests-on-uri.log"))
-          requestMap.toArray
-            .sortWith((x, y) => x._2 > y._2)
-            .foreach(x => requestsWriter.println(s"${x._2}, ${x._1}"))
+      .map(_ => {
+        val requestsWriter = new PrintWriter(new FileOutputStream("requests-on-uri.log"))
+        requestMap.toArray
+          .sortWith((x, y) => x._2._1 > y._2._1)
+          .foreach(x => requestsWriter.println(s"${x._2._1}, ${x._2._2}, ${x._1}"))
 
-          requestsWriter.flush()
-          requestsWriter.close()
-        })
+        requestsWriter.flush()
+        requestsWriter.close()
+      })
     s2.map(s => s.foreach(updateUserAgentMap(_)))
-        .map(_ => {
-          val userAgentWriter = new PrintWriter(new FileOutputStream("requests-by-user-agent.log"))
-          userAgentMap.toArray
-            .sortWith((x, y) => x._2 > y._2)
-            .foreach(x => userAgentWriter.println(s"${x._2}, ${x._1}"))
+      .map(_ => {
+        val userAgentWriter = new PrintWriter(new FileOutputStream("requests-by-user-agent.log"))
+        userAgentMap.toArray
+          .sortWith((x, y) => x._2._1 > y._2._1)
+          .foreach(x => userAgentWriter.println(s"${x._2._1}, ${x._2._2}, ${x._1}"))
 
-          userAgentWriter.flush()
-          userAgentWriter.close()
-        })
+        userAgentWriter.flush()
+        userAgentWriter.close()
+      })
 
     futures.foreach(f => Await.result(f, FiniteDuration(1000, TimeUnit.DAYS)))
 
